@@ -1,0 +1,9 @@
+[submodule "TorchInference"]
+	path = TorchInference
+	url = git@github.com:mtmal/TorchInference.git
+[submodule "CSI-Camera"]
+	path = CSI_Camera
+	url = git@github.com:mtmal/Jetson-Stereo-CSI-Camera.git
+[submodule "JetRacer"]
+	path = JetRacer
+	url = git@github.com:mtmal/jetracer_cpp.git
