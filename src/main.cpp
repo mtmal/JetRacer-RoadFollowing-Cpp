@@ -20,10 +20,14 @@
 // SOFTWARE.
 ////////////////////////////////////////////////////////////////////////////////
 
+#include <signal.h>
 #include <unistd.h>
 #include <CSI_Camera.h>
 #include <NvidiaRacer.h>
 #include <TorchInference.h>
+
+/** Flag indicating if the main program loop should run. */
+std::atomic<bool> runFlag(true);
 
 /**
  * Prints help information about this application.
@@ -46,6 +50,18 @@ static void printHelp(const char* name)
 }
 
 /**
+ * Handler for signals.
+ *  @param signum the type of received signal.
+ */
+void handleSignals(int signum)
+{
+    if (signum == SIGINT)
+    {
+        runFlag = false;
+    }
+}
+
+/**
  * Runs the application.
  *  @param pathToModel path to JIT script model.
  *  @param imageSize the size to which images should be resized.
@@ -65,8 +81,6 @@ void run(const std::string& pathToModel, const cv::Size& imageSize, const uint8_
     NvidiaRacer racer;
     /** Buffer for acquired image. */
     cv::Mat img;
-    /** Time when the system started. */
-    long startTime = std::time(0);
 
     torchInference.initialise(pathToModel.c_str());
     if (racer.initialise())
@@ -74,12 +88,11 @@ void run(const std::string& pathToModel, const cv::Size& imageSize, const uint8_
     	racer.setThrottleGain(0.5f);
         if (camera.startCamera(framerate, mode, id, 0))
         {
-            while (std::time(0) - startTime < 10)
+            while (runFlag)
             {
                 if (camera.getRawImage(img))
                 {
-                    torchInference.processImage(img, outTensor);
-                    outTensor = outTensor.flatten();
+                    outTensor = torchInference.processImage(img, outTensor).flatten();
                     racer.setSteering(outTensor[0].item().toFloat());
                     racer.setThrottle(outTensor[1].item().toFloat());
                 }
@@ -113,6 +126,9 @@ int main(int argc, char** argv)
     uint8_t mode = 0;
     /** The ID of the CSI camera in case there are mutliple cameras. */
     uint8_t id = 0;
+
+    /** Register the SIGINT handler (ctrl+c) */
+    signal(SIGINT, handleSignals);
 
     for (int i = 1; i < argc; ++i)
     {

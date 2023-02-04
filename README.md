@@ -20,4 +20,4 @@ Execute the following using provided model:
 ```
 $ ./JetRacer_RoadFollowing -p ../drive_road_following_model_cpp.pt -f 10 -m 4
 ```
-
+To exit, simply press ctrl+c in the terminal. The application handles SIGINT to gracefully stop JetRacer.
