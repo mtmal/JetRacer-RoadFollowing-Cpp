@@ -7,3 +7,6 @@
 [submodule "JetRacer"]
 	path = JetRacer
 	url = git@github.com:mtmal/jetracer_cpp.git
+[submodule "JetracerUtils"]
+	path = JetracerUtils
+	url = git@github.com:mtmal/JetracerUtils.git

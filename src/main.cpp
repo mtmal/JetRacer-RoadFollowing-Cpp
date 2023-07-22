@@ -20,14 +20,15 @@
 // SOFTWARE.
 ////////////////////////////////////////////////////////////////////////////////
 
+#include <semaphore.h>
 #include <signal.h>
 #include <unistd.h>
 #include <CSI_Camera.h>
 #include <NvidiaRacer.h>
 #include <TorchInference.h>
 
-/** Flag indicating if the main program loop should run. */
-std::atomic<bool> runFlag(true);
+/** Main semaphore to cleanly stop the application without busy waiting. */
+sem_t SEM;
 
 /**
  * Prints help information about this application.
@@ -57,58 +58,92 @@ void handleSignals(int signum)
 {
     if (signum == SIGINT)
     {
-        runFlag = false;
+        sem_post(&SEM);
     }
 }
+
+class CameraListener : public IGenericListener<CameraData>
+{
+public:
+    CameraListener(const int camId) : mCamId(camId)
+    {
+    }
+
+    bool initialise(const std::string& pathToModel, const cv::Size& imageSize)
+    {
+        bool retVal = mRacer.initialise();
+        if (retVal)
+        {
+            mRacer.setThrottleGain(0.5f);
+            mTorchInference.initialise(pathToModel, imageSize.width, imageSize.height, 3);
+        }
+        return retVal;
+    }
+
+    void update(const CameraData& camData)
+    {
+        if (camData.mID == mCamId)
+        {
+            mTorchInference.processImage(camData.mImage.createMatHeader(), mOutTensor).flatten();
+            mRacer.setSteering(mOutTensor[0].item().toFloat());
+            mRacer.setThrottle(mOutTensor[1].item().toFloat());
+        }
+    }
+
+    void stop()
+    {
+        mRacer.setThrottle(0);
+    }
+
+private:
+    /** Camera ID. */
+    uint8_t mCamId;
+    /** Wrapper class to perform Torch inference. */
+    TorchInference mTorchInference;
+    /** Output data as a tensor. */
+    torch::Tensor mOutTensor;
+    /** Interface for the Jetracer. */
+    NvidiaRacer mRacer;
+};
 
 /**
  * Runs the application.
  *  @param pathToModel path to JIT script model.
  *  @param imageSize the size to which images should be resized.
  *  @param framerate the framerate at which cameras should acquire images.
- *  @param id the ID of the camera to start.
+ *  @param camId the ID of the camera to start.
  *  @param mode the mode at which cameras should operate.
  */
-void run(const std::string& pathToModel, const cv::Size& imageSize, const uint8_t framerate, const uint8_t mode, const uint8_t id)
+void run(const std::string& pathToModel, const cv::Size& imageSize, const uint8_t framerate, const uint8_t mode, const uint8_t camId)
 {
-    /** Wrapper class to perform Torch inference. */
-    TorchInference torchInference(imageSize.width, imageSize.height);
     /** The mono camera class. */
-    CSI_Camera camera(imageSize);
-    /** Output data as a tensor. */
-    torch::Tensor outTensor;
-    /** Interface for the Jetracer. */
-    NvidiaRacer racer;
-    /** Buffer for acquired image. */
-    cv::Mat img;
+    CSI_Camera camera;
+    /** Camera listener and JetRacer wrapper. */
+    CameraListener listener(camId);
+    /** Listener's ID. */
+    int listID = camera.registerListener(listener);
 
-    torchInference.initialise(pathToModel.c_str());
-    if (racer.initialise())
+    if (listener.initialise(pathToModel, imageSize))
     {
-    	racer.setThrottleGain(0.5f);
-        if (camera.startCamera(framerate, mode, id, 0))
+        if (camera.startCamera(imageSize, framerate, mode, camId, 2, true))
         {
-            while (runFlag)
+            while (0 == sem_wait(&SEM))
             {
-                if (camera.getRawImage(img))
-                {
-                    outTensor = torchInference.processImage(img, outTensor).flatten();
-                    racer.setSteering(outTensor[0].item().toFloat());
-                    racer.setThrottle(outTensor[1].item().toFloat());
-                }
-                usleep(static_cast<__useconds_t>(1000000.0 / static_cast<double>(framerate)));
+                // nothing to do, we are waiting on semaphore. While loop is to prevent
+                // early application exit due to interrupts
+                ;
             }
-            racer.setThrottle(0.0f);
-            racer.setSteering(0.0f);
+            camera.unregisterListener(listID);
+            listener.stop();
         }
         else
         {
-            puts("Failed to open camera.");
+            puts("Failed to initialise camera and Jetracer.");
         }
     }
     else
     {
-    	puts("Failed to initialise Jetracer.");
+        puts("Failed to initalise camera listener.");
     }
 }
 
@@ -127,8 +162,10 @@ int main(int argc, char** argv)
     /** The ID of the CSI camera in case there are mutliple cameras. */
     uint8_t id = 0;
 
-    /** Register the SIGINT handler (ctrl+c) */
+    /* Register the SIGINT handler (ctrl+c) */
     signal(SIGINT, handleSignals);
+    /* Initialise the semaphore */
+    sem_init(&SEM, 0, 0);
 
     for (int i = 1; i < argc; ++i)
     {
