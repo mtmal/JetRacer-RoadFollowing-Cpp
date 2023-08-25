@@ -6,7 +6,8 @@ project(JetRacer_RoadFollowing)
 
 # specify the C++ standard
 set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED True)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_CXX_FLAGS "-fPIC -g -pedantic -Wall -Wextra")
 
 # get OpenCV
@@ -40,9 +41,13 @@ include_directories(TorchInference/src)
 # add the source code
 include_directories(src)
 
-# Build the road following tool
-add_executable(JetRacer_RoadFollowing src/main.cpp)
+# build the road following app
+add_executable(JetRacer_RoadFollowing src/CameraDriveAdapter.cpp src/main.cpp)
 target_link_libraries(JetRacer_RoadFollowing JetracerUtils CSI_Camera JetRacer I2C TorchInference ${TORCH_LIBRARIES} ${OpenCV_LIBRARIES})
 
-#add_executable(JetRacer_SaveImages src/saveImagesMain.cpp)
-#target_link_libraries(JetRacer_SaveImages CSI_Camera JetRacer I2C ${OpenCV_LIBRARIES})
+# build config parser test
+add_executable(test_configParser tests/test_configParser.cpp src/Configuration.cpp)
+
+
+add_executable(test_racer src/CameraDriveAdapter.cpp src/StateMachine.cpp src/Configuration.cpp src/DataSaver.cpp src/jetracer_main.cpp)
+target_link_libraries(test_racer JetracerUtils CSI_Camera JetRacer I2C TorchInference ${TORCH_LIBRARIES} ${OpenCV_LIBRARIES} -lstdc++fs)

@@ -25,7 +25,7 @@
 #include <unistd.h>
 #include <CSI_Camera.h>
 #include <NvidiaRacer.h>
-#include <TorchInference.h>
+#include "CameraDriveAdapter.h"
 
 /** Main semaphore to cleanly stop the application without busy waiting. */
 sem_t SEM;
@@ -62,50 +62,6 @@ void handleSignals(int signum)
     }
 }
 
-class CameraListener : public IGenericListener<CameraData>
-{
-public:
-    CameraListener(const int camId) : mCamId(camId)
-    {
-    }
-
-    bool initialise(const std::string& pathToModel, const cv::Size& imageSize)
-    {
-        bool retVal = mRacer.initialise();
-        if (retVal)
-        {
-            mRacer.setThrottleGain(0.5f);
-            mTorchInference.initialise(pathToModel, imageSize.width, imageSize.height, 3);
-        }
-        return retVal;
-    }
-
-    void update(const CameraData& camData)
-    {
-        if (camData.mID == mCamId)
-        {
-            mTorchInference.processImage(camData.mImage.createMatHeader(), mOutTensor).flatten();
-            mRacer.setSteering(mOutTensor[0].item().toFloat());
-            mRacer.setThrottle(mOutTensor[1].item().toFloat());
-        }
-    }
-
-    void stop()
-    {
-        mRacer.setThrottle(0);
-    }
-
-private:
-    /** Camera ID. */
-    uint8_t mCamId;
-    /** Wrapper class to perform Torch inference. */
-    TorchInference mTorchInference;
-    /** Output data as a tensor. */
-    torch::Tensor mOutTensor;
-    /** Interface for the Jetracer. */
-    NvidiaRacer mRacer;
-};
-
 /**
  * Runs the application.
  *  @param pathToModel path to JIT script model.
@@ -116,25 +72,24 @@ private:
  */
 void run(const std::string& pathToModel, const cv::Size& imageSize, const uint8_t framerate, const uint8_t mode, const uint8_t camId)
 {
-    /** The mono camera class. */
-    CSI_Camera camera;
-    /** Camera listener and JetRacer wrapper. */
-    CameraListener listener(camId);
-    /** Listener's ID. */
-    int listID = camera.registerListener(listener);
-
-    if (listener.initialise(pathToModel, imageSize))
+    NvidiaRacer racer;
+    if (racer.initialise())
     {
-        if (camera.startCamera(imageSize, framerate, mode, camId, 2, true))
+        CSI_Camera camera;
+        if (camera.startCamera(imageSize, framerate, mode, {camId}, 2, true, false))
         {
+            CameraDriveAdapter jrController(pathToModel, imageSize, 3);
+            camera.registerTo(&jrController);
+            racer.registerTo(&jrController);
+
             while (0 == sem_wait(&SEM))
             {
                 // nothing to do, we are waiting on semaphore. While loop is to prevent
                 // early application exit due to interrupts
                 ;
             }
-            camera.unregisterListener(listID);
-            listener.stop();
+            camera.unregisterFrom(&jrController);
+            racer.unregisterFrom(&jrController);
         }
         else
         {
