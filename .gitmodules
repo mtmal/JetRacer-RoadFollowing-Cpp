@@ -10,3 +10,9 @@
 [submodule "JetracerUtils"]
 	path = JetracerUtils
 	url = git@github.com:mtmal/JetracerUtils.git
+[submodule "OLED-0.91in-Cpp"]
+	path = OLED-0.91in-Cpp
+	url = git@github.com:mtmal/OLED-0.91in-Cpp.git
+[submodule "I2C"]
+	path = I2C
+	url = git@github.com:mtmal/I2C.git

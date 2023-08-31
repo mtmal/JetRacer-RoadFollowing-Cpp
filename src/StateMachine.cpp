@@ -30,7 +30,7 @@ namespace
 /** Define iterator to reduce typing, but avoid using auto which pollutes reading. */
 typedef std::unordered_map<int, std::function<void(StateMachine&, const short)>>::iterator ActionsMapIterator;
 
-const std::string stateToStr(const E_States state)
+const std::string stateToStr(const E_State state)
 {
     switch (state)
     {
@@ -53,6 +53,7 @@ StateMachine::StateMachine(const Configuration& config, ICameraTalker* camera)
   GenericTalker<DriveCommands>(),
   mConfig(config),
   mRacer(),
+  mOled(std::stoi(mConfig.at("oledAddress"), nullptr, 0), std::stoi(mConfig.at("oledMaxWait"))),
   mCamera(camera),
   mDataSaver(config),
   mState(RC),
@@ -90,6 +91,12 @@ bool StateMachine::initialise()
     if (!mRacer.initialise(mConfig.at("jetracerDevice").c_str()))
     {
         puts("Failed to initialise jetracer");
+        return false;
+    }
+
+    if (!mOled.initialise((mConfig.at("jetracerDevice").c_str())))
+    {
+        puts("Failed to initialise OLED display.");
         return false;
     }
 
@@ -241,17 +248,18 @@ void StateMachine::processStatePageAxis(const short value)
         int tempState = static_cast<int>(mState) + static_cast<int>(std::copysign(1, value));
         if (tempState < 0)
         {
-            mState = static_cast<E_States>(static_cast<int>(UNUSED) - 1);
+            mState = static_cast<E_State>(static_cast<int>(UNUSED) - 1);
         }
         else if (tempState >= static_cast<int>(UNUSED))
         {
-            mState = static_cast<E_States>(0);
+            mState = static_cast<E_State>(0);
         }
         else
         {
-            mState = static_cast<E_States>(tempState);
+            mState = static_cast<E_State>(tempState);
         }
         printf("Going from state: %s to state: %s \n", stateToStr(mPreviousState).c_str(), stateToStr(mState).c_str());
+        mOled.selectImage(mState);
     }
 }
 

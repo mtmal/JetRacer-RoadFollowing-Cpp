@@ -22,17 +22,27 @@ include_directories(${TORCH_INCLUDE_DIR})
 add_subdirectory(JetracerUtils)
 include_directories(JetracerUtils/src)
 
+# add the I2C submodule
+add_subdirectory(I2C)
+include_directories(I2C/src)
+
 # set the custom jetracer utils path to prevent issues with building the same submodule by other submodules
 set(CUSTOM_JETRACER_UTILS JetracerUtils)
+set(CUSTOM_I2C I2C)
 
 # add the camera submodule
 add_subdirectory(CSI_Camera)
 include_directories(CSI_Camera/src)
 
-# add the jetracer submodule with nested I2C
+# add the jetracer submodule
 add_subdirectory(JetRacer)
 include_directories(JetRacer/src)
-include_directories(JetRacer/I2C/src)
+
+# add the OLED submodule
+add_subdirectory(OLED-0.91in-Cpp)
+include_directories(OLED-0.91in-Cpp/src)
+include_directories(OLED-0.91in-Cpp/src/Fonts)
+include_directories(OLED-0.91in-Cpp/src/GUI)
 
 # add the torch inference submodule
 add_subdirectory(TorchInference)
@@ -49,5 +59,5 @@ target_link_libraries(JetRacer_RoadFollowing JetracerUtils CSI_Camera JetRacer I
 add_executable(test_configParser tests/test_configParser.cpp src/Configuration.cpp)
 
 
-add_executable(test_racer src/CameraDriveAdapter.cpp src/StateMachine.cpp src/Configuration.cpp src/DataSaver.cpp src/jetracer_main.cpp)
-target_link_libraries(test_racer JetracerUtils CSI_Camera JetRacer I2C TorchInference ${TORCH_LIBRARIES} ${OpenCV_LIBRARIES} -lstdc++fs)
+add_executable(test_racer src/CameraDriveAdapter.cpp src/StateMachine.cpp src/Configuration.cpp src/DataSaver.cpp src/OledWrapper.cpp src/jetracer_main.cpp)
+target_link_libraries(test_racer JetracerUtils CSI_Camera JetRacer I2C TorchInference OLED-0.91in ${TORCH_LIBRARIES} ${OpenCV_LIBRARIES} -lstdc++fs)

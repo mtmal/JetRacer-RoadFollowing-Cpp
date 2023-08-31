@@ -29,16 +29,9 @@
 #include <ICameraTalker.h>
 #include <NvidiaRacer.h>
 #include "DataSaver.h"
+#include "OledWrapper.h"
 
 class Configuration;
-
-enum E_States
-{
-    RC          = 0, // remote controlled
-    RC_IMAGES   = 1, // remote controlled with images being save with steering and throttle
-    ML          = 2, // model controlled
-    UNUSED      = 3  // mode value used for iterations
-};
 
 class StateMachine : public GenericListener<GamepadEventData>,
                      public GenericTalker<DriveCommands>
@@ -73,14 +66,15 @@ private:
 
     const Configuration& mConfig;
     NvidiaRacer mRacer;
+    OledWrapper mOled;
 
     ICameraTalker* mCamera;
 
     DataSaver mDataSaver;
 
     /** The current state of the state machine. */
-    E_States mState;
-    E_States mPreviousState;
+    E_State mState;
+    E_State mPreviousState;
 
 
 	/** Gamepad class. */
