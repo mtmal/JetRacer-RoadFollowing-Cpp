@@ -25,14 +25,6 @@
 #include "Configuration.h"
 
 
-Configuration::Configuration() : std::unordered_map<std::string, std::string>()
-{
-}
-
-Configuration::~Configuration()
-{
-}
-
 bool Configuration::loadConfiguration(const std::string& path, const std::string& delimiter, const char comment)
 {
     std::ifstream cFile(path);

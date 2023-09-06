@@ -31,16 +31,6 @@ class Configuration : public std::unordered_map<std::string, std::string>
 {
 public:
     /**
-     * Basic constructor.
-     */
-    Configuration();
-
-    /**
-     * Basic destructor.
-     */
-    virtual ~Configuration();
-
-    /**
      * Loads configuration from the file. This function first clears old configuration only if the file was successfully opened.
      *  @param path a path to configuration file.
      *  @param delimiter an optional delimiter for key-value pairs.
