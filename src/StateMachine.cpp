@@ -88,25 +88,41 @@ StateMachine::~StateMachine()
 
 bool StateMachine::initialise()
 {
-    if (!mRacer.initialise(mConfig.at("jetracerDevice").c_str()))
+    if (mRacer.initialise(mConfig.at("jetracerDevice").c_str()))
+    {
+        puts("Racer inititialised");
+    }
+    else
     {
         puts("Failed to initialise jetracer");
         return false;
     }
 
-    if (!mOled.initialise((mConfig.at("jetracerDevice").c_str())))
+    if (mOled.initialise((mConfig.at("jetracerDevice").c_str())))
+    {
+        puts("OLED inititialised");
+    }
+    else
     {
         puts("Failed to initialise OLED display.");
         return false;
     }
 
-    if (!mGamepad.initialise(mConfig.at("gamepadDevice").c_str()))
+    if (mGamepad.initialise(mConfig.at("gamepadDevice").c_str()))
+    {
+        puts("Gamepad inititialised");
+    }
+    else
     {
         puts("Failed to initialise gamepad");
         return false;
     }
 
-    if (!mGamepad.startEventThread())
+    if (mGamepad.startThread())
+    {
+        puts("Gamepad thread started");
+    }
+    else
     {
         puts("Failed to start gamepad thread");
         return false;
@@ -117,8 +133,8 @@ bool StateMachine::initialise()
 
 void StateMachine::stop()
 {
-    mDataSaver.stop();
-    mGamepad.stopEventThread();
+    mDataSaver.stopThread(true);
+    mGamepad.stopThread();
     mGamepad.unregisterFrom(this);
     mGamepad.unregisterFrom(&mGamepadDrive);
     mRacer.unregisterFrom(&mGamepadDrive);

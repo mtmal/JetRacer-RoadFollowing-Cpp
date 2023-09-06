@@ -54,15 +54,11 @@ bool strToBool(const std::string& value)
 DataSaver::DataSaver(const Configuration& config)
 : GenericListener<CameraData>(),
   GenericListener<DriveCommands>(),
-  mRun(true),
-  mThread(0),
+  GenericThread<DataSaver>(),
   mUid(0),
   mFolderName(),
   mImage()
 {
-    pthread_mutex_init(&mLock, nullptr);
-    sem_init(&mSem, 0, 0);
-
     if (strToBool(config.at("isMono")))
     {
         mImage = cv::Mat(std::stod(config.at("height")), std::stod(config.at("width")), CV_8UC3);
@@ -74,19 +70,17 @@ DataSaver::DataSaver(const Configuration& config)
         mFolderName = ("./stereo/" + std::to_string(getTime()));
     }
     std::filesystem::create_directories(mFolderName);
-    pthread_create(&mThread, nullptr, DataSaver::startThread, this);
+    startThread();
 }
 
 DataSaver::~DataSaver()
 {
-    stop();
-    pthread_mutex_destroy(&mLock);
-    sem_destroy(&mSem);
+    stopThread(true);
 }
 
 void DataSaver::update(const CameraData& cameraData)
 {
-    ScopedLock lock(mLock);
+    ScopedLock lock(mMutex);
     if (cameraData.mImage.size() == 1)
     {
         cameraData.mImage[0].createMatHeader().copyTo(mImage);
@@ -96,36 +90,25 @@ void DataSaver::update(const CameraData& cameraData)
         cameraData.mImage[0].createMatHeader().copyTo(mImage(cv::Rect(0, 0, cameraData.mImage[0].cols, cameraData.mImage[0].rows)));
         cameraData.mImage[1].createMatHeader().copyTo(mImage(cv::Rect(cameraData.mImage[0].cols, 0, cameraData.mImage[1].cols, cameraData.mImage[1].rows)));
     }
-    sem_post(&mSem);
+    sem_post(&mSemaphore);
 }
 
 void DataSaver::update(const DriveCommands& driveCommands)
 {
-    ScopedLock lock(mLock);
+    ScopedLock lock(mMutex);
     mDriveCommands = driveCommands;
 }
 
-void DataSaver::stop()
-{
-    mRun = false;
-    if (mThread > 0)
-    {
-        pthread_cancel(mThread);
-        pthread_join(mThread, nullptr);
-        mThread = 0;
-    }
-}
-
-void DataSaver::threadBody()
+void* DataSaver::theadBody()
 {
     int bytesWritten;
     char path[256] = {0};
     
-    while (mRun.load(std::memory_order_relaxed))
+    while (isRunning())
     {
-        if (0 == sem_wait(&mSem))
+        if (0 == sem_wait(&mSemaphore))
         {
-            ScopedLock lock(mLock);
+            ScopedLock lock(mMutex);
             if (fabs(mDriveCommands.mThrottle) > 1e-6f)
             {
                 bytesWritten = snprintf(path, 256, "%s/%f_%f_%lu.jpg", mFolderName.c_str(), mDriveCommands.mSteering, mDriveCommands.mThrottle, mUid++);
@@ -135,11 +118,5 @@ void DataSaver::threadBody()
             }
         }
     }
-}
-
-void* DataSaver::startThread(void* instance)
-{
-    DataSaver* ds = static_cast<DataSaver*>(instance);
-    ds->threadBody();
     return nullptr;
 }

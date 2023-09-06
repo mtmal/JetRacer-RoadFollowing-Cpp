@@ -22,9 +22,7 @@
 
 #pragma once
 
-#include <atomic>
-#include <pthread.h>
-#include <semaphore.h>
+#include <GenericThread.h>
 #include <OLED_0in91.h>
 #include "E_State.h"
 
@@ -33,8 +31,10 @@
  * which will never be displayed for longer than configurable amount of seconds. This is to ensure
  * that the OLED is not on for too long.
  */
-class OledWrapper
+class OledWrapper : protected GenericThread<OledWrapper>
 {
+    friend class GenericThread<OledWrapper>;
+
 public:
     /**
      * Initialises all variables, prepares images, and clears the display.
@@ -52,10 +52,7 @@ public:
      * Initialises the OLED display and starts a thread that clears the display after specified time since the last update.
      *  @param device the path to the I2C bus on which OLED is wired.
      */
-    inline bool initialise(const std::string& device)
-    {
-        return mOled.initialise(device) && (0 == pthread_create(&mThread, nullptr, OledWrapper::startThread, this));
-    }
+    bool initialise(const std::string& device);
 
     /**
      * Based on provided state, displays appropriate image. These images are just text descriptions of the state.
@@ -65,29 +62,16 @@ public:
 
     /**
      * The main body of the thread that waits until OLED display can be cleared.
+     *  @return nullptr.
      */
-    void waitingThread();
+    void* theadBody();
 
 private:
-    /**
-     * Starts the waiting thread.
-     *  @param instance an instance of this class.
-     *  @return nullptr 
-     */
-    static void* startThread(void* instance);
-
     /** The OLED class. */
     OLED_0in91 mOled;
     /** Images for each state. */
     uint8_t mImages[static_cast<uint8_t>(E_State::UNUSED)][IMAGE_SIZE];
     /** Duration in seconds when the OLED should be cleared after the last update. */
     uint8_t mSleepTime;
-    /** Flag indicating whether a thead should be running. */
-    std::atomic<bool> mRun;
-    /** The thread itself. */
-    pthread_t mThread;
-    /** Mutex for controlling access to the @p mOled */
-    pthread_mutex_t mMutex;
-    /** Semaphore used for timed wait. */
-    sem_t mSemaphore;
 };
+

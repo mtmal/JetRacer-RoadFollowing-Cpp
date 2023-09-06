@@ -29,18 +29,11 @@ extern "C" {
 #include "OledWrapper.h"
 
 OledWrapper::OledWrapper(const uint8_t deviceAddress, const uint8_t maxSleepTime)
-: mOled(deviceAddress),
+: GenericThread<OledWrapper>(),
+  mOled(deviceAddress),
   mImages{},
-  mSleepTime(maxSleepTime),
-  mRun(true),
-  mThread(0)
+  mSleepTime(maxSleepTime)
 {
-    pthread_mutex_init(&mMutex, nullptr);
-    sem_init(&mSemaphore, 0, 0);
-
-    // make sure the display is clear
-    mOled.clear();
-
     // prepare all images beforehand
     Paint_SelectImage(mImages[static_cast<uint8_t>(E_State::RC)]);
     OLED_0in91::drawText("Remote    Controlled", 10, 0, &Font16, mImages[static_cast<uint8_t>(E_State::RC)]);
@@ -52,12 +45,18 @@ OledWrapper::OledWrapper(const uint8_t deviceAddress, const uint8_t maxSleepTime
 
 OledWrapper::~OledWrapper()
 {
-    mRun = false;
-    pthread_cancel(mThread);
-    pthread_join(mThread, nullptr);
+    stopThread(true);
     mOled.clear();
-    sem_destroy(&mSemaphore);
-    pthread_mutex_destroy(&mMutex);
+}
+
+bool OledWrapper::initialise(const std::string& device)
+{
+    if (mOled.initialise(device))
+    {
+        mOled.clear();
+        return startThread();
+    }
+    return false;
 }
 
 void OledWrapper::selectImage(const E_State state)
@@ -70,11 +69,11 @@ void OledWrapper::selectImage(const E_State state)
     }
 }
 
-void OledWrapper::waitingThread()
+void* OledWrapper::theadBody()
 {
     int ret;
     struct timespec ts;
-    while (mRun.load(std::memory_order_relaxed))
+    while (isRunning())
     {
         // if there was an error the thread could have been canceled, or some other error may have happened
         if (0 == sem_wait(&mSemaphore))
@@ -95,10 +94,5 @@ void OledWrapper::waitingThread()
             }
         }
     }
-}
-
-void* OledWrapper::startThread(void* instance)
-{
-    static_cast<OledWrapper*>(instance)->waitingThread();
     return nullptr;
 }

@@ -22,17 +22,17 @@
 
 #pragma once
 
-#include <pthread.h>
-#include <semaphore.h>
 #include <string>
 #include <DriveCommands.h>
 #include <GenericListener.h>
+#include <GenericThread.h>
 
 struct CameraData;
 class Configuration;
 
 class DataSaver : public GenericListener<CameraData>,
-                  public GenericListener<DriveCommands>
+                  public GenericListener<DriveCommands>,
+                  public GenericThread<DataSaver>
 {
 public:
     explicit DataSaver(const Configuration& config);
@@ -41,19 +41,11 @@ public:
     void update(const CameraData& cameraData) override;
     void update(const DriveCommands& driveCommands) override;
 
-    void stop();
-
-    void threadBody();
+    void* theadBody();
 
 private:
-    static void* startThread(void* instance);
-
-    std::atomic<bool> mRun;
-    pthread_t mThread;
     unsigned long mUid;
     std::string mFolderName;
     cv::Mat mImage;
     DriveCommands mDriveCommands;
-    pthread_mutex_t mLock;
-    sem_t mSem;
 };
