@@ -99,7 +99,7 @@ void DataSaver::update(const DriveCommands& driveCommands)
     mDriveCommands = driveCommands;
 }
 
-void* DataSaver::theadBody()
+void* DataSaver::threadBody()
 {
     int bytesWritten;
     char path[256] = {0};

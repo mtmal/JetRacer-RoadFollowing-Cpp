@@ -41,7 +41,7 @@ public:
     void update(const CameraData& cameraData) override;
     void update(const DriveCommands& driveCommands) override;
 
-    void* theadBody();
+    void* threadBody();
 
 private:
     unsigned long mUid;

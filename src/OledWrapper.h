@@ -64,7 +64,7 @@ public:
      * The main body of the thread that waits until OLED display can be cleared.
      *  @return nullptr.
      */
-    void* theadBody();
+    void* threadBody();
 
 private:
     /** The OLED class. */

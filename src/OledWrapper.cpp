@@ -69,7 +69,7 @@ void OledWrapper::selectImage(const E_State state)
     }
 }
 
-void* OledWrapper::theadBody()
+void* OledWrapper::threadBody()
 {
     int ret;
     struct timespec ts;
