@@ -52,7 +52,7 @@ StateMachine::StateMachine(const Configuration& config, ICameraTalker* camera)
 : GenericListener<GamepadEventData>(),
   GenericTalker<DriveCommands>(),
   mConfig(config),
-  mRacer(),
+  mRacer(-1),
   mOled(std::stoi(mConfig.at("oledAddress"), nullptr, 0), std::stoi(mConfig.at("oledMaxWait"))),
   mCamera(camera),
   mDataSaver(config),
@@ -221,10 +221,15 @@ void StateMachine::processStateConfButton(const short value)
         switch (mState)
         {
             case RC:
-                puts("Stopping camera");
                 if (mCamera->isRunning())
                 {
+                    puts("Stopping camera");
                     mCamera->stopCamera();
+                }
+                if (mDataSaver.isRunning())
+                {
+                    puts("Stopping datasaver thread");
+                    mDataSaver.stopThread(true);
                 }
                 puts("Unregistering data saver");
                 static_cast<GenericListener<DriveCommands>&>(mDataSaver).unregisterFrom(&mGamepadDrive);
@@ -234,19 +239,29 @@ void StateMachine::processStateConfButton(const short value)
                 puts("Registering data saver");
                 static_cast<GenericListener<DriveCommands>&>(mDataSaver).registerTo(&mGamepadDrive);
                 static_cast<GenericListener<CameraData>&>(mDataSaver).registerTo(mCamera);
-                puts("Starting camera");
                 if (!mCamera->isRunning())
                 {
+                    puts("Starting camera");
                     startCamera();
+                }
+                if (!mDataSaver.isRunning())
+                {
+                    puts("Starting datasaver thread");
+                    mDataSaver.startThread();
                 }
                 break;
             case ML:
+                if (mDataSaver.isRunning())
+                {
+                    puts("Stopping datasaver thread");
+                    mDataSaver.stopThread(true);
+                }
                 puts("Unregistering data saver");
                 static_cast<GenericListener<DriveCommands>&>(mDataSaver).unregisterFrom(&mGamepadDrive);
                 static_cast<GenericListener<CameraData>&>(mDataSaver).unregisterFrom(mCamera);
-                puts("Starting camera");
                 if (!mCamera->isRunning())
                 {
+                    puts("Starting camera");
                     startCamera();
                 }
                 break;

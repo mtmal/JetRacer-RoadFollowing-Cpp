@@ -41,6 +41,8 @@ public:
     void update(const CameraData& cameraData) override;
     void update(const DriveCommands& driveCommands) override;
 
+    bool startThread();
+
     void* threadBody();
 
 private:

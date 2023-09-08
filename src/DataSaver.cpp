@@ -69,8 +69,6 @@ DataSaver::DataSaver(const Configuration& config)
         mImage = cv::Mat(std::stod(config.at("height")), std::stod(config.at("width")) * 2, CV_8UC1);
         mFolderName = ("./stereo/" + std::to_string(getTime()));
     }
-    std::filesystem::create_directories(mFolderName);
-    startThread();
 }
 
 DataSaver::~DataSaver()
@@ -97,6 +95,13 @@ void DataSaver::update(const DriveCommands& driveCommands)
 {
     ScopedLock lock(mMutex);
     mDriveCommands = driveCommands;
+}
+
+bool DataSaver::startThread()
+{
+    // only create folder when we start the data saver thread
+    std::filesystem::create_directories(mFolderName);
+    return GenericThread<DataSaver>::startThread();
 }
 
 void* DataSaver::threadBody()
