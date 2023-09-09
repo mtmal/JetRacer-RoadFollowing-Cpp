@@ -137,8 +137,8 @@ void StateMachine::stop()
     mGamepad.unregisterFrom(this);
     mGamepad.unregisterFrom(&mGamepadDrive);
     mRacer.unregisterFrom(&mGamepadDrive);
-    mRacer.setThrottle(0.0f);
     mCamera->stopCamera();
+    mRacer.setThrottle(0.0f);
 }
 
 void StateMachine::update(const GamepadEventData& eventData)
@@ -161,16 +161,6 @@ void StateMachine::update(const GamepadEventData& eventData)
     }
 }
 
-void StateMachine::processRcState()
-{
-
-}
-
-void StateMachine::processMlState()
-{
-
-}
-
 void StateMachine::processStopButton(const short value)
 {
     printf("processStopButton, value=%d \n", value);
@@ -187,10 +177,12 @@ void StateMachine::processRcOverrideButton(const short value)
         mPreviousState = mState;
         switch (mState)
         {
-            case RC_IMAGES:
             case ML:
-                puts("Pausing camera");
+                mTorchDrive.pause();
+                [[fallthrough]];
+            case RC_IMAGES:
                 mCamera->pause();
+                mRacer.update(DriveCommands(0.0f, 0.0f));
                 break;
             default:
                 break;
@@ -200,9 +192,10 @@ void StateMachine::processRcOverrideButton(const short value)
     {
         switch (mPreviousState)
         {
-            case RC_IMAGES:
             case ML:
-                puts("Resuming camera");
+                mTorchDrive.resume();
+                [[fallthrough]];
+            case RC_IMAGES:
                 mCamera->resume();
                 break;
             default:

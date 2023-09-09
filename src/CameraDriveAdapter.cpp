@@ -36,6 +36,7 @@ CameraDriveAdapter::~CameraDriveAdapter()
 
 void CameraDriveAdapter::update(const CameraData& camData)
 {
+    printf("Received image! \n");
     if (camData.mImage.size() == 1)
     {
         mOutput = mTorchInference.processImage(camData.mImage[0].createMatHeader(), mOutput).flatten();
