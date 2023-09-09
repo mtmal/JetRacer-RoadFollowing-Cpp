@@ -60,6 +60,7 @@ StateMachine::StateMachine(const Configuration& config, ICameraTalker* camera)
   mPreviousState(RC),
   mGamepad(),
   mGamepadDrive(std::stoi(mConfig.at("steeringAxis")), std::stoi(mConfig.at("throttleAxis"))),
+  mTorchDrive(mConfig.at("model"), cv::Size(std::stoi(mConfig.at("width")), std::stoi(mConfig.at("height"))), strToBool(mConfig.at("isMono"))),
   mRcOverride(false)
 {
     sem_init(&mSemaphore, 0, 0);
@@ -77,7 +78,7 @@ StateMachine::StateMachine(const Configuration& config, ICameraTalker* camera)
     mGamepad.registerTo(this);
     mGamepad.registerTo(&mGamepadDrive);
     mRacer.registerTo(&mGamepadDrive);
-
+    mRacer.registerTo(&mTorchDrive);
 }
 
 StateMachine::~StateMachine()
@@ -88,16 +89,6 @@ StateMachine::~StateMachine()
 
 bool StateMachine::initialise()
 {
-    if (mRacer.initialise(mConfig.at("jetracerDevice").c_str()))
-    {
-        puts("Racer inititialised");
-    }
-    else
-    {
-        puts("Failed to initialise jetracer");
-        return false;
-    }
-
     if (mOled.initialise((mConfig.at("jetracerDevice").c_str())))
     {
         puts("OLED inititialised");
@@ -108,23 +99,31 @@ bool StateMachine::initialise()
         return false;
     }
 
+    if (mRacer.initialise(mConfig.at("jetracerDevice").c_str()))
+    {
+        puts("Racer inititialised");
+    }
+    else
+    {
+        puts("Failed to initialise jetracer");
+        return false;
+    }
+
     if (mGamepad.initialise(mConfig.at("gamepadDevice").c_str()))
     {
-        puts("Gamepad inititialised");
+        if (mGamepad.startThread())
+        {
+            puts("Gamepad inititialised");
+        }
+        else
+        {
+            puts("Failed to start gamepad thread");
+            return false;
+        }
     }
     else
     {
         puts("Failed to initialise gamepad");
-        return false;
-    }
-
-    if (mGamepad.startThread())
-    {
-        puts("Gamepad thread started");
-    }
-    else
-    {
-        puts("Failed to start gamepad thread");
         return false;
     }
     
@@ -234,8 +233,12 @@ void StateMachine::processStateConfButton(const short value)
                 puts("Unregistering data saver");
                 static_cast<GenericListener<DriveCommands>&>(mDataSaver).unregisterFrom(&mGamepadDrive);
                 static_cast<GenericListener<CameraData>&>(mDataSaver).unregisterFrom(mCamera);
+                puts("Unregistering torch drive");
+                static_cast<GenericListener<CameraData>&>(mTorchDrive).unregisterFrom(mCamera);
                 break;
             case RC_IMAGES:
+                puts("Unregistering torch drive");
+                static_cast<GenericListener<CameraData>&>(mTorchDrive).unregisterFrom(mCamera);
                 puts("Registering data saver");
                 static_cast<GenericListener<DriveCommands>&>(mDataSaver).registerTo(&mGamepadDrive);
                 static_cast<GenericListener<CameraData>&>(mDataSaver).registerTo(mCamera);
@@ -259,6 +262,8 @@ void StateMachine::processStateConfButton(const short value)
                 puts("Unregistering data saver");
                 static_cast<GenericListener<DriveCommands>&>(mDataSaver).unregisterFrom(&mGamepadDrive);
                 static_cast<GenericListener<CameraData>&>(mDataSaver).unregisterFrom(mCamera);
+                puts("Registering torch drive");
+                static_cast<GenericListener<CameraData>&>(mTorchDrive).registerTo(mCamera);
                 if (!mCamera->isRunning())
                 {
                     puts("Starting camera");

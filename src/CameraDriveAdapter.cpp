@@ -20,6 +20,7 @@
 // SOFTWARE.
 ////////////////////////////////////////////////////////////////////////////////
 
+#include <cstdio>
 #include "CameraDriveAdapter.h"
 
 CameraDriveAdapter::CameraDriveAdapter(const std::string& pathToModel, const cv::Size& imageSize, const bool isMono)
@@ -37,14 +38,14 @@ void CameraDriveAdapter::update(const CameraData& camData)
 {
     if (camData.mImage.size() == 1)
     {
-        mTorchInference.processImage(camData.mImage[0].createMatHeader(), mOutput).flatten();
+        mOutput = mTorchInference.processImage(camData.mImage[0].createMatHeader(), mOutput).flatten();
     }
     else
     {
         cv::Mat img(camData.mImage[0].rows, camData.mImage[0].cols + camData.mImage[1].cols, CV_8UC1);
         camData.mImage[0].createMatHeader().copyTo(img(cv::Rect(0, 0, camData.mImage[0].cols, camData.mImage[0].rows)));
         camData.mImage[1].createMatHeader().copyTo(img(cv::Rect(camData.mImage[0].cols, 0, camData.mImage[1].cols, camData.mImage[1].rows)));
-        mTorchInference.processGreyImage(img, mOutput).flatten();
+        mOutput = mTorchInference.processGreyImage(img, mOutput).flatten();
     }
     notifyListeners(DriveCommands(mOutput[0].item().toFloat(), mOutput[1].item().toFloat()));
 }

@@ -28,6 +28,7 @@
 #include <GamepadDriveAdapter.h>
 #include <ICameraTalker.h>
 #include <NvidiaRacer.h>
+#include "CameraDriveAdapter.h"
 #include "DataSaver.h"
 #include "OledWrapper.h"
 
@@ -80,6 +81,7 @@ private:
 	/** Gamepad class. */
 	Gamepad mGamepad;
     GamepadDriveAdapter mGamepadDrive;
+    CameraDriveAdapter mTorchDrive;
 
     bool mRcOverride;
     sem_t mSemaphore;
