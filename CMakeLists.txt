@@ -51,13 +51,9 @@ include_directories(TorchInference/src)
 # add the source code
 include_directories(src)
 
-# build the road following app
-add_executable(JetRacer_RoadFollowing src/CameraDriveAdapter.cpp src/main.cpp)
-target_link_libraries(JetRacer_RoadFollowing JetracerUtils CSI_Camera JetRacer I2C TorchInference ${TORCH_LIBRARIES} ${OpenCV_LIBRARIES})
-
 # build config parser test
 add_executable(test_configParser tests/test_configParser.cpp src/Configuration.cpp)
 
-
-add_executable(test_racer src/CameraDriveAdapter.cpp src/StateMachine.cpp src/Configuration.cpp src/DataSaver.cpp src/OledWrapper.cpp src/jetracer_main.cpp)
-target_link_libraries(test_racer JetracerUtils CSI_Camera JetRacer I2C TorchInference OLED-0.91in ${TORCH_LIBRARIES} ${OpenCV_LIBRARIES} -lstdc++fs)
+# build the road following app
+add_executable(JetRacer_RoadFollowing src/CameraDriveAdapter.cpp src/StateMachine.cpp src/Configuration.cpp src/DataSaver.cpp src/OledWrapper.cpp src/main.cpp)
+target_link_libraries(JetRacer_RoadFollowing JetracerUtils CSI_Camera JetRacer I2C TorchInference OLED-0.91in ${TORCH_LIBRARIES} ${OpenCV_LIBRARIES} -lstdc++fs)

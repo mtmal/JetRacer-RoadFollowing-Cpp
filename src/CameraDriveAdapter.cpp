@@ -21,32 +21,72 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 #include <cstdio>
+#include <ATen/ATen.h>
 #include "CameraDriveAdapter.h"
 
-CameraDriveAdapter::CameraDriveAdapter(const std::string& pathToModel, const cv::Size& imageSize, const bool isMono)
-: GenericListener<CameraData>(),
-  GenericTalker<DriveCommands>()
+namespace
 {
-    mTorchInference.initialise(pathToModel, isMono ? imageSize.width : imageSize.width * 2, imageSize.height, isMono ? 3 : 1);
+/**
+ * Converts bool to +1 (true) or -1 (false).
+ *  @param value bool to convert
+ *  @return +1 or -1 depending on @p value.
+ */
+inline int boolToInt(const bool value)
+{
+    return static_cast<int>(value) * 2 - 1;
+}
+} /* end of anonymous namespace */
+
+CameraDriveAdapter::CameraDriveAdapter()
+: GenericListener<CameraData>(),
+  GenericTalker<DriveCommands>(),
+  mTTA(false),
+  mIsInitialised(false)
+{
 }
 
 CameraDriveAdapter::~CameraDriveAdapter()
 {
 }
 
+void CameraDriveAdapter::initialise(const std::string& pathToModel, const cv::Size& imageSize, const bool isMono, const bool tta)
+{
+    if (!isInitialised())
+    {
+        mTTA = tta;
+        mTorchInference.initialise(pathToModel, imageSize.width, imageSize.height, isMono ? 3 : 1);
+        mIsInitialised = true;
+    }
+}
+
 void CameraDriveAdapter::update(const CameraData& camData)
 {
+    DriveCommands driveCommands;
+    at::Tensor output;
     printf("Received image! \n");
     if (camData.mImage.size() == 1)
     {
-        mOutput = mTorchInference.processImage(camData.mImage[0].createMatHeader(), mOutput).flatten();
+        mTorchInference.processImage(mTTA, camData.mImage[0].createMatHeader(), output);
     }
     else
     {
-        cv::Mat img(camData.mImage[0].rows, camData.mImage[0].cols + camData.mImage[1].cols, CV_8UC1);
-        camData.mImage[0].createMatHeader().copyTo(img(cv::Rect(0, 0, camData.mImage[0].cols, camData.mImage[0].rows)));
-        camData.mImage[1].createMatHeader().copyTo(img(cv::Rect(camData.mImage[0].cols, 0, camData.mImage[1].cols, camData.mImage[1].rows)));
-        mOutput = mTorchInference.processGreyImage(img, mOutput).flatten();
+        mTorchInference.processGreyImage(mTTA, camData.mImage[0].createMatHeader(), camData.mImage[1].createMatHeader(), output);
     }
-    notifyListeners(DriveCommands(mOutput[0].item().toFloat(), mOutput[1].item().toFloat()));
+    processResults(output, driveCommands);
+    notifyListeners(driveCommands);
+}
+
+void CameraDriveAdapter::processResults(const at::Tensor& results, DriveCommands& driveCommands) const
+{
+    if (static_cast<int>(results.size(0)) > 0)
+    {
+        for (int i = 0; i < static_cast<int>(results.size(0)); ++i)
+        {
+            driveCommands.mSteering -= boolToInt(mTTA && (i >= (static_cast<int>(results.size(0)) / 2))) * results[i][0].item().toFloat();
+            driveCommands.mThrottle += results[i][1].item().toFloat();
+        }
+        driveCommands.mSteering /= static_cast<int>(results.size(0));
+        driveCommands.mThrottle /= static_cast<int>(results.size(0));
+    }
+
 }

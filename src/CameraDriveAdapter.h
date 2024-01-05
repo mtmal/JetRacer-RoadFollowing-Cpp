@@ -38,11 +38,8 @@ class CameraDriveAdapter : public GenericListener<CameraData>,
 public:
     /**
      * Initialises the underhood TorchInference class.
-     *  @param pathToModel path to JIT model for liborch to load.
-     *  @param imageSize size of a single image. For stereo camera double width is taken.
-     *  @param isMono true for a mono camera system.
      */
-    CameraDriveAdapter(const std::string& pathToModel, const cv::Size& imageSize, const bool isMono);
+    CameraDriveAdapter();
 
     /**
      * Class destructor.
@@ -50,14 +47,40 @@ public:
     virtual ~CameraDriveAdapter();
 
     /**
+     * Initialises the torch inference class.
+     *  @param pathToModel path to JIT model for liborch to load.
+     *  @param imageSize size of a single image. For stereo camera double width is taken.
+     *  @param isMono true for a mono camera system.
+     *  @param tta true to enable test time augmentations.
+     */
+    void initialise(const std::string& pathToModel, const cv::Size& imageSize, const bool isMono, const bool tta);
+
+    /**
      * Receives camera images to predict drive commands for JetRacer.
      *  @param camData the camera data, can be from either mono or stereo camera.
      */
     void update(const CameraData& camData) override;
 
+    /**
+     *  @return true of the class was initialised.
+     */
+    inline bool isInitialised() const
+    {
+        return mIsInitialised;
+    }
+
 private:
+    /**
+     * Converts results into drive command.
+     *  @param result the result of inference.
+     *  @param driveCommands the drive commands to be issued.
+     */
+    void processResults(const at::Tensor& results, DriveCommands& driveCommands) const;
+
+    /** Flag to indicate if test time augmentations should be applied. */
+    bool mTTA;
+    /** Flag to indicate if the class was initialised. */
+    bool mIsInitialised;
     /** Wrapper class to perform Torch inference. */
     TorchInference mTorchInference;
-    /** Output tensor. */
-    torch::Tensor mOutput;
 };

@@ -50,7 +50,7 @@ public:
      *  @param config the main configuration.
      *  @param camera pointer to the camera, either mono or stereo.
      */
-    explicit StateMachine(const Configuration& config, ICameraTalker* camera);
+    StateMachine(const Configuration& config, ICameraTalker* camera);
 
     /**
      * Basic destructor that calls stop().

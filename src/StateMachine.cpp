@@ -60,7 +60,7 @@ StateMachine::StateMachine(const Configuration& config, ICameraTalker* camera)
   mPreviousState(RC),
   mGamepad(),
   mGamepadDrive(std::stoi(mConfig.at("steeringAxis")), std::stoi(mConfig.at("throttleAxis"))),
-  mTorchDrive(mConfig.at("model"), cv::Size(std::stoi(mConfig.at("width")), std::stoi(mConfig.at("height"))), strToBool(mConfig.at("isMono"))),
+  mTorchDrive(),
   mRcOverride(false)
 {
     sem_init(&mSemaphore, 0, 0);
@@ -137,6 +137,7 @@ void StateMachine::stop()
     mGamepad.unregisterFrom(this);
     mGamepad.unregisterFrom(&mGamepadDrive);
     mRacer.unregisterFrom(&mGamepadDrive);
+    mRacer.unregisterFrom(&mTorchDrive);
     mCamera->stopCamera();
     mRacer.setThrottle(0.0f);
 }
@@ -251,6 +252,14 @@ void StateMachine::processStateConfButton(const short value)
                 {
                     puts("Stopping datasaver thread");
                     mDataSaver.stopThread(true);
+                }
+                if (!mTorchDrive.isInitialised())
+                {
+                    puts("Initilising torch inference");
+                    mTorchDrive.initialise(mConfig.at("model"), 
+                                           cv::Size(std::stoi(mConfig.at("width")), std::stoi(mConfig.at("height"))), 
+                                           strToBool(mConfig.at("isMono")), 
+                                           strToBool(mConfig.at("tta")));
                 }
                 puts("Unregistering data saver");
                 static_cast<GenericListener<DriveCommands>&>(mDataSaver).unregisterFrom(&mGamepadDrive);
